@@ -9,9 +9,10 @@
 #define SoftRst7 0x01
 
 #define TwiOff6 0x8D
+//#define TwiOff6 0x80
 #define TwiOff7 0x02
 
-volatile int interruptCounter;
+volatile uint interruptCounter;
 int fallingEgdeCount = 0;
 bool CLK_On = false;
 uint8_t state = 0;
@@ -66,7 +67,6 @@ void setup() {
   for (int i = 0; i < D_MAXDATABYTES; i++) {
     daten.dataBytes[i] = 0x00;
   }
-  
   // TWI RST
   // 4 * 0x00
   daten.dataBytes[4] = 0x8D; // TWI_RST
@@ -109,8 +109,6 @@ void setup() {
 }
  
 void sendData() {
-  delay(1000);
-  return;
     delayMicroseconds(15);// tDD warten
     for (int i = 0; i < 1000; i++)  {
       SendNRZ(HIGH);
@@ -123,6 +121,7 @@ void sendData() {
 }
 void sendTwi(uint8_t onOff) {
     // aufwecken mit TWI_OFF
+    daten.pos = 0;
     if (onOff == 0) {
       daten.dataBytes[6] = TwiOff6; // send data
       daten.dataBytes[7] = TwiOff7; // send Data
@@ -130,8 +129,8 @@ void sendTwi(uint8_t onOff) {
       daten.dataBytes[6] = SoftRst6; // SoftRst --> Sleep
       daten.dataBytes[7] = SoftRst7; // SoftRst  --> Sleep
     }
-    daten.pos = 0;
-    CLK_On = true;
+    //daten.pos = 0; 
+    CLK_On = true; 
 }
 
 void loop() {
@@ -139,57 +138,62 @@ void loop() {
   int datenBit = -1; // -1 = nix tun
 
   if (!CLK_On) {
+    // delay direkt nach twi wrkunglsos da clock erst in schleife generiert wird
     if (state == 0) {
+      delay(2000);
+      Serial.println("sleep");
       sendTwi(1); // sleep
-      delay(1000);
-      Serial.print("s");
-      delay(1000);
       state = 1;
     } else if (state == 1) {
-      //Serial.println("wakeup");
-      //sendTwi(0); // wakeup for sending
+      delay(5000);
+      Serial.println("wakeup");
+      sendTwi(0); // wakeup for sending
+      //Serial.print(" wake up");
       state = 2;
-    } else if (state == 2) {
-     // sendData();
-      delay(1000);
+    } else if (state == 2) {   
+      delay(3000);
+      Serial.print(" senden");
+      sendData();
       state = 0;
       //Serial.println("data out");
     }
   }
-  if (interruptCounter > 1) {
-    interruptCounter = 0;
-  } else if (interruptCounter > 0) {
-    //Serial.println(interruptCounter);
-    portENTER_CRITICAL(&timerMux);
-    //digitalWrite(TWI_DATA, 0);
-    interruptCounter = 0;
-    uint8_t clkstate = digitalRead(TWI_CLK);
-    if (CLK_On) {
-      if (clkstate == 1) {
-        fallingEgdeCount++;
-      }
-     // Serial.print('i');
-      digitalWrite(TWI_CLK, !clkstate);
-
-    } else {
-      //Serial.print('i');
-      digitalWrite(TWI_CLK, 1);
-    }
-    portEXIT_CRITICAL(&timerMux);
-    if (clkstate == 0  && CLK_On) {
-      datenBit = getNextBit(daten);
-      if (datenBit >= 0) {
-        digitalWrite(TWI_DATA, datenBit);
-        //Serial.print(datenBit);
-      
-      } else {
-        digitalWrite(TWI_DATA, 0);
+  if (CLK_On) {
+    if (interruptCounter > 1) {
+      interruptCounter = 0;
+    } else if (interruptCounter > 0) {
+      //Serial.println(interruptCounter);
+      portENTER_CRITICAL(&timerMux);
+      //digitalWrite(TWI_DATA, 0);
+      interruptCounter = 0;
+      uint8_t clkstate = digitalRead(TWI_CLK);
+      if (CLK_On) {
+        if (clkstate == 1) {
+          fallingEgdeCount++;
+        }
+      // Serial.print('i');
         digitalWrite(TWI_CLK, !clkstate);
-        CLK_On = false;
-        //Serial.println(fallingEgdeCount);
-        fallingEgdeCount = 0;
-        daten.pos = 0;
+
+      } else {
+        //Serial.print('i');
+        digitalWrite(TWI_CLK, 1);
       }
-    } 
+      portEXIT_CRITICAL(&timerMux);
+      if (clkstate == 0  && CLK_On) {
+        datenBit = getNextBit(daten);
+        if (datenBit >= 0) {
+          digitalWrite(TWI_DATA, datenBit);
+          //Serial.print(datenBit);
+        
+        } else {
+          digitalWrite(TWI_DATA, 0);
+          digitalWrite(TWI_CLK, !clkstate);
+          CLK_On = false;
+          Serial.println(fallingEgdeCount);
+          fallingEgdeCount = 0;
+          //daten.pos = 0;
+        }
+      } 
+    }
   }
 }
