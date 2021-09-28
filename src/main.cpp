@@ -30,7 +30,6 @@ void IRAM_ATTR onTimer() {
   portENTER_CRITICAL_ISR(&timerMux);
   interruptCounter++;
   portEXIT_CRITICAL_ISR(&timerMux);
- 
 }
  
 int getNextBit(dataTwi &d) {
@@ -134,9 +133,7 @@ void sendTwi(uint8_t onOff) {
 }
 
 void loop() {
-
   int datenBit = -1; // -1 = nix tun
-
   if (!CLK_On) {
     // delay direkt nach twi wrkunglsos da clock erst in schleife generiert wird
     if (state == 0) {
