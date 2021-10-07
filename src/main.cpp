@@ -5,6 +5,7 @@
 #define D_MAXDATABYTES 64
 #define D_BITDELAY_MV 999
 
+
 #define SoftRst6 0xBD
 #define SoftRst7 0x01
 
